@@ -1,2 +1,4 @@
-gem 'rake', '~> 0.9.0'
+source 'https://rubygems.org'
+
+gem 'rake'
 gem 'bundler'
