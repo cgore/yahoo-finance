@@ -1,6 +1,6 @@
 # yahoo-finance
 
-[![Yahoos.jpg](The Servants Drive a Herd of Yahoos into the Field, from Gulliver's Travels)](https://commons.wikimedia.org/wiki/File:The_Servants_Drive_a_Herd_of_Yahoos_into_the_Field,_from_Gulliver%27s_Travels.jpg)
+[![The Servants Drive a Herd of Yahoos into the Field, from Gulliver's Travels](Yahoos.jpg)](https://commons.wikimedia.org/wiki/File:The_Servants_Drive_a_Herd_of_Yahoos_into_the_Field,_from_Gulliver%27s_Travels.jpg)
 
 **[View PDF Documentation](documentation/yahoo-finance.pdf)**
 
