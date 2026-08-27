@@ -1,0 +1,179 @@
+%%%% Copyright (C) 2026, Christopher Mark Gore,
+%%%% Soli Deo Gloria,
+%%%% All rights reserved.
+%%%%
+%%%% 22 Forest Glade Court, Saint Charles, Missouri 63304 USA.
+%%%% Web: http://cgore.com
+%%%% Email: cgore@cgore.com
+%%%%
+%%%% Redistribution and use in source and binary forms, with or without
+%%%% modification, are permitted provided that the following conditions are met:
+%%%%
+%%%%     * Redistributions of source code must retain the above copyright
+%%%%       notice, this list of conditions and the following disclaimer.
+%%%%
+%%%%     * Redistributions in binary form must reproduce the above copyright
+%%%%       notice, this list of conditions and the following disclaimer in the
+%%%%       documentation and/or other materials provided with the distribution.
+%%%%
+%%%%     * Neither the name of Christopher Mark Gore nor the names of other
+%%%%       contributors may be used to endorse or promote products derived from
+%%%%       this software without specific prior written permission.
+%%%%
+%%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+%%%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%%%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%%%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+%%%% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%%%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%%%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+%%%% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+%%%% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+%%%% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%%% POSSIBILITY OF SUCH DAMAGE.
+
+\lispPackageChapter{yahoo-finance}
+
+The package you \texttt{use} from application code.  It re-exports every
+external symbol of \texttt{yahoo-finance/rest-api} and adds time
+conversion, window normalisation, and \texttt{ohlc-history}.
+
+\section{Time}
+
+Yahoo timestamps are \textsc{Unix} seconds.  Common Lisp wants universal
+time.
+
+\lispParameterSubsection{unix-epoch}
+
+Universal time of the \textsc{Unix} epoch, 1970-01-01T00:00:00Z.
+
+\lispFunctionSubsection{unix->universal}
+
+Convert a \textsc{Unix} timestamp in seconds or milliseconds to
+universal time.  Values above $10^{11}$ are treated as milliseconds.
+
+\lispFunctionSubsection{universal->unix}
+
+The inverse: universal time to \textsc{Unix} seconds.
+
+\lispFunctionSubsection{canonicalize-unix}
+
+Turn a value into a \textsc{Unix}-seconds string for
+\texttt{period1}/\texttt{period2}.  Integers greater than $10^{11}$ are
+milliseconds; integers greater than $3\cdot10^{9}$ are universal times;
+everything else is already unix seconds.
+
+\section{Windows}
+
+\lispFunctionSubsection{canonicalize-interval}
+
+Map a candlesticks short name or a Yahoo interval onto Yahoo's strings.
+\texttt{"d"}~$\rightarrow$~\texttt{1d}, \texttt{"w"}~$\rightarrow$~\texttt{1wk},
+\texttt{"M"}~$\rightarrow$~\texttt{1mo}, \texttt{"m"}~$\rightarrow$~\texttt{1m},
+\texttt{"h"}~$\rightarrow$~\texttt{1h}.  The Lisp reader upcases, so
+\texttt{:m} and \texttt{:M} are the same symbol and mean minute; pass the
+string \texttt{"M"} or \texttt{:mo} for a month.
+
+\lispFunctionSubsection{normalize-chart-window}
+
+Return a plist \texttt{:interval :range :period1 :period2} suitable for
+\texttt{get-chart}.
+
+\texttt{:from}/\texttt{:to} (or \texttt{period1}/\texttt{period2}) win over
+\texttt{range}.  \texttt{range=max} with a daily-or-longer interval is
+rewritten to \texttt{period1=0} / \texttt{period2=now} so Yahoo does not
+downsample to quarterly bars.  With no window at all, daily-or-longer
+defaults to that full-history pair.
+
+\lispSyntax
+
+\texttt{(normalize-chart-window \&key \lispVar{interval} \lispVar{range}
+\lispVar{from} \lispVar{to} \lispVar{period1} \lispVar{period2})}
+
+\section{Bars}
+
+\lispFunctionSubsection{chart}
+
+Alias for \texttt{get-chart}: the raw Yason payload.
+
+\lispFunctionSubsection{chart-result}
+
+Unwrapped \texttt{chart.result[0]} after
+\texttt{normalize-chart-window}.  Signals \texttt{chart-error} on an
+empty or error payload.
+
+\lispFunctionSubsection{chart-meta}
+
+A plist of what Yahoo said about a result: \texttt{:symbol},
+\texttt{:currency}, \texttt{:exchange-name},
+\texttt{:full-exchange-name}, \texttt{:instrument-type},
+\texttt{:timezone}, \texttt{:exchange-timezone-name},
+\texttt{:gmt-offset}, \texttt{:first-trade-date} (universal time),
+\texttt{:data-granularity}, \texttt{:long-name}, \texttt{:short-name},
+and optional \texttt{:endpoint}.  Mapping \texttt{NasdaqGS} onto a
+candlesticks exchange slug is the caller's job.
+
+\lispTypeSubsection{ohlc-bar}
+
+One Yahoo chart bar: as-traded open, high, low, close, optional volume,
+and optional adjusted close.  Time is a universal time.  Accessors are
+\texttt{ohlc-bar-time}, \texttt{ohlc-bar-open}, \texttt{ohlc-bar-high},
+\texttt{ohlc-bar-low}, \texttt{ohlc-bar-close}, \texttt{ohlc-bar-volume},
+and \texttt{ohlc-bar-adjusted-close}.  \texttt{ohlc-bar-p} is true of
+instances.  \texttt{make-ohlc-bar} builds one from keyword arguments.
+
+This is not a \texttt{candlesticks:candlestick}: there are no
+instruments, duration, or retrieval.
+
+\lispFunctionSubsection{result->bars}
+
+A list of \texttt{ohlc-bar} from a chart result.  Bars whose
+\textsc{Ohlc} are all null are dropped.
+
+\lispFunctionSubsection{ohlc-bar-tuple}
+
+One ingest row for \texttt{candlesticks:ingest-candlesticks}:
+\texttt{(time open high low close volume adjusted-close)}.
+
+\lispFunctionSubsection{ohlc-bars-for-ingest}
+
+Map a sequence of \texttt{ohlc-bar} through \texttt{ohlc-bar-tuple}.
+This library does not depend on candlesticks; the caller passes the
+result into \texttt{ingest-candlesticks}.
+
+\lispFunctionSubsection{ohlc-history}
+
+The main entry point.  Returns two values: a list of \texttt{ohlc-bar},
+and a chart-meta plist (including the request \texttt{:endpoint}).
+Default window is a full daily history via
+\texttt{period1}/\texttt{period2}, not \texttt{range=max}.
+
+\lispSyntax
+
+\texttt{(ohlc-history \lispVar{symbol} \&key \lispVar{interval}
+\lispVar{range} \lispVar{from} \lispVar{to} \lispVar{period1}
+\lispVar{period2} \lispVar{events} \lispVar{include-adjusted-close}
+\lispVar{include-pre-post} \lispVar{cache})}
+
+\lispExamples
+
+\begin{lstlisting}
+(ohlc-history "AAPL")
+(ohlc-history "AAPL" :range "1y")
+(ohlc-history :msft :interval "w" :range "5y")
+(ohlc-history "AAPL"
+              :from (encode-universal-time 0 0 0 1 1 2020 0)
+              :to   (encode-universal-time 0 0 0 1 1 2024 0))
+\end{lstlisting}
+
+\lispFunctionSubsection{load-chart-fixture}
+
+Parse a checked-in chart \textsc{Json} fixture under
+\path{test-fixtures/}.  Used by load-time specs; default name
+\texttt{aapl-chart-5d.json}.
+
+\section{Version}
+
+\texttt{version-string}, \texttt{version-list}, and the three
+\texttt{version-*} parameters are re-exported from
+\texttt{yahoo-finance/system}.  This is version \texttt{0.1.0}.

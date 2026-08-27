@@ -1,0 +1,131 @@
+%%%% Copyright (C) 2026, Christopher Mark Gore,
+%%%% Soli Deo Gloria,
+%%%% All rights reserved.
+%%%%
+%%%% 22 Forest Glade Court, Saint Charles, Missouri 63304 USA.
+%%%% Web: http://cgore.com
+%%%% Email: cgore@cgore.com
+%%%%
+%%%% Redistribution and use in source and binary forms, with or without
+%%%% modification, are permitted provided that the following conditions are met:
+%%%%
+%%%%     * Redistributions of source code must retain the above copyright
+%%%%       notice, this list of conditions and the following disclaimer.
+%%%%
+%%%%     * Redistributions in binary form must reproduce the above copyright
+%%%%       notice, this list of conditions and the following disclaimer in the
+%%%%       documentation and/or other materials provided with the distribution.
+%%%%
+%%%%     * Neither the name of Christopher Mark Gore nor the names of other
+%%%%       contributors may be used to endorse or promote products derived from
+%%%%       this software without specific prior written permission.
+%%%%
+%%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+%%%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%%%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%%%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+%%%% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%%%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%%%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+%%%% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+%%%% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+%%%% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%%% POSSIBILITY OF SUCH DAMAGE.
+
+\chapter{Introduction}
+
+\texttt{yahoo-finance} is a Common Lisp client for Yahoo Finance chart
+data.  It is \emph{not} an official Yahoo product.  Yahoo has not offered a
+supported public Finance \textsc{Api} since 2017~\cite{yahoo-api-2017}.
+This library talks to the unofficial \textsc{Json} chart endpoint that
+powers \url{https://finance.yahoo.com}:
+
+\begin{center}
+\url{https://query2.finance.yahoo.com/v8/finance/chart/AAPL}
+\end{center}
+
+It is also not Paul Nathan's archived
+\texttt{cl-yahoo-finance}~\cite{cl-yahoo-finance}, which called the old
+ichart \textsc{Csv} and \textsc{Yql} surfaces.  Those URLs are gone.  This
+library starts from scratch against v8 chart, the same way
+\texttt{cl-coingecko}~\cite{cl-coingecko} wraps CoinGecko.
+
+The thin layer lives in \texttt{yahoo-finance/rest-api}: \textsc{Http}, a
+browser \texttt{User-Agent} (Yahoo returns 429 without one), 429 retries,
+and \texttt{get-chart}.  The \texttt{yahoo-finance} package re-exports that
+layer and adds the helpers you actually want: universal times,
+\texttt{ohlc-history} as a list of \texttt{ohlc-bar} objects, a translator
+\texttt{ohlc-bars-for-ingest} for candlesticks, and a meta plist (currency,
+exchange, instrument type).
+
+This library does \emph{not} depend on
+\texttt{candlesticks}~\cite{candlesticks}.  Candlesticks is a Postgre\textsc{Sql}
+store.  An application such as Livermore or Limbic loads both and calls
+\texttt{ingest-candlesticks}.
+
+v0.1 wraps only the chart endpoint.  Quote, quoteSummary, options, and
+search need Yahoo's cookie/crumb dance and are out of scope.
+
+You can download the library from GitHub at:\\
+\url{https://github.com/cgore/yahoo-finance}
+
+\section*{Getting Lisp}
+
+Before using this library you need a working Lisp.  I use and recommend
+\textsc{Sbcl}, Steel Bank Common Lisp, which is available at:\\
+\url{http://www.sbcl.org}
+
+If you are using Debian or a similar Linux distribution (including Ubuntu), you
+can just run as root:\\
+\texttt{apt-get install sbcl sbcl-doc sbcl-source}
+
+\section*{Using the Library}
+
+Clone the repository next to your other local systems, or symlink the
+\textsc{Asdf} file into a directory on \path{asdf:*central-registry*}
+(I use \path{~/programming/lisp/systems/}).
+
+\begin{lstlisting}
+mkdir -p ~/programming/lisp
+cd ~/programming/lisp
+git clone git@github.com:cgore/yahoo-finance.git
+ln -s ~/programming/lisp/yahoo-finance/yahoo-finance.asd \
+      ~/programming/lisp/systems/
+\end{lstlisting}
+
+The system depends on Dexador, \texttt{function-cache}, Quri, $\Sigma$, and
+Yason.  Those come from Quicklisp.
+
+\begin{lstlisting}
+(ql:quickload :yahoo-finance)
+(in-package :yahoo-finance)
+
+(multiple-value-bind (bars meta)
+    (ohlc-history "AAPL" :range "1mo")
+  (list (length bars)
+        (getf meta :currency)
+        (getf meta :full-exchange-name)
+        (first bars)))
+\end{lstlisting}
+
+\texttt{ohlc-history} defaults to a full daily history via
+\texttt{period1}/\texttt{period2}.  Do not send \texttt{range=max} with
+\texttt{interval=1d} to the raw endpoint: Yahoo downsamples that pair to
+quarterly bars.  \texttt{ohlc-history} rewrites it.
+
+\section*{Testing}
+
+Specs are \texttt{sigma/behave} \texttt{behavior} / \texttt{should} forms
+and run at load time.  \texttt{asdf:test-system} reloads the sources so
+those assertions run again.  They do not hit the network; a checked-in
+five-day \texttt{AAPL} fixture covers parsing.
+
+\begin{lstlisting}
+(asdf:test-system :yahoo-finance)
+\end{lstlisting}
+
+To also call Yahoo, set \texttt{YAHOO\_FINANCE\_LIVE\_TESTS=1} and run
+\texttt{asdf:test-system} again.  The live suite uses a short window.
+\textsc{Http} 429 is treated as a skip.
+
+Have fun!

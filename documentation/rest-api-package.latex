@@ -1,0 +1,147 @@
+%%%% Copyright (C) 2026, Christopher Mark Gore,
+%%%% Soli Deo Gloria,
+%%%% All rights reserved.
+%%%%
+%%%% 22 Forest Glade Court, Saint Charles, Missouri 63304 USA.
+%%%% Web: http://cgore.com
+%%%% Email: cgore@cgore.com
+%%%%
+%%%% Redistribution and use in source and binary forms, with or without
+%%%% modification, are permitted provided that the following conditions are met:
+%%%%
+%%%%     * Redistributions of source code must retain the above copyright
+%%%%       notice, this list of conditions and the following disclaimer.
+%%%%
+%%%%     * Redistributions in binary form must reproduce the above copyright
+%%%%       notice, this list of conditions and the following disclaimer in the
+%%%%       documentation and/or other materials provided with the distribution.
+%%%%
+%%%%     * Neither the name of Christopher Mark Gore nor the names of other
+%%%%       contributors may be used to endorse or promote products derived from
+%%%%       this software without specific prior written permission.
+%%%%
+%%%% THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+%%%% AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+%%%% IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+%%%% ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+%%%% LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+%%%% CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+%%%% SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+%%%% INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+%%%% CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+%%%% ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+%%%% POSSIBILITY OF SUCH DAMAGE.
+
+\lispPackageChapter{yahoo-finance/rest-api}
+
+The thin \textsc{Http} layer.  It sends a browser \texttt{User-Agent},
+retries 429s, parses \textsc{Json} with Yason (arrays as vectors), and
+exposes one wrapper for Yahoo's unofficial chart endpoint.
+
+\section{Variables}
+
+\lispVariableSubsection{*query2*}
+
+\url{https://query2.finance.yahoo.com} --- the default host.  Query1
+429s more readily in practice.
+
+\lispVariableSubsection{*query1*}
+
+\url{https://query1.finance.yahoo.com}.  Set \texttt{*api*} to this if
+query2 is unhappy.
+
+\lispVariableSubsection{*api*}
+
+The host actually used for requests.  Defaults to \texttt{*query2*}.
+
+\lispVariableSubsection{*user-agent*}
+
+A Chrome-shaped \texttt{User-Agent} string.  Yahoo returns 429 for
+requests that look like a bare \textsc{Http} library.
+
+\lispVariableSubsection{*api-cache-timeout-seconds*}
+
+How long \texttt{http-get-cached} and \texttt{http-get-json-cached} keep
+a response.  Default 60.
+
+\lispVariableSubsection{*max-retries*}
+
+How many times to retry a 429.  Default 3.
+
+\lispVariableSubsection{*retry-wait-seconds*}
+
+Base wait, in seconds, between 429 retries.  Attempt $n$ waits
+$n \times$ this value.  Default 2.
+
+\section{Functions}
+
+\lispFunctionSubsection{canonicalize-ticker}
+
+Yahoo tickers are uppercase strings: \texttt{AAPL}, \texttt{BRK-B},
+\texttt{\textasciicircum GSPC}.  Symbols are upcased too.
+
+\lispSyntax
+
+\texttt{(canonicalize-ticker \lispVar{symbol})}
+
+\lispFunctionSubsection{get-chart}
+
+Raw \texttt{GET /v8/finance/chart/\lispVar{symbol}}.  Returns the
+top-level Yason hash table.  This is the thin wrapper: it does
+\emph{not} rewrite \texttt{range=max}.  Use \texttt{ohlc-history} for a
+Lisp series that avoids Yahoo's quarterly downsample.
+
+\lispSyntax
+
+\texttt{(get-chart \lispVar{symbol} \&key \lispVar{interval} \lispVar{range}
+\lispVar{period1} \lispVar{period2} \lispVar{events}
+\lispVar{include-adjusted-close} \lispVar{include-pre-post} \lispVar{cache})}
+
+\texttt{include-adjusted-close} defaults to true.  \texttt{cache}
+defaults to true.  \texttt{nil} query values are omitted.
+
+\lispFunctionSubsection{chart-path}
+
+The request path, with the ticker \textsc{Url}-encoded so
+\texttt{\textasciicircum GSPC} works.
+
+\lispFunctionSubsection{chart-uri}
+
+The full \textsc{Url} \texttt{get-chart} would request.  Useful as a
+candlesticks retrieval endpoint.
+
+\lispFunctionSubsection{unwrap-chart}
+
+The first \texttt{chart.result} element of a payload, or a
+\texttt{chart-error} if Yahoo set \texttt{chart.error} or the result is
+empty.  Yahoo sometimes returns \textsc{Http} 200 with an error object
+(a delisted symbol).
+
+\lispSyntax
+
+\texttt{(unwrap-chart \lispVar{payload} \&key \lispVar{url})}
+
+\section{Conditions}
+
+\lispTypeSubsection{api-error}
+
+An error talking to Yahoo.  Accessors:
+\texttt{api-error-status}, \texttt{api-error-url},
+\texttt{api-error-code}, \texttt{api-error-message},
+\texttt{api-error-timestamp}, \texttt{api-error-body}.
+
+\lispTypeSubsection{rate-limited}
+
+\textsc{Http} 429.  Subclass of \texttt{api-error}.  \texttt{http-get}
+retries these with backoff before signalling.
+
+\lispTypeSubsection{chart-error}
+
+The chart payload carried an error object, or had no result.  Accessors
+\texttt{chart-error-code} and \texttt{chart-error-description} hold
+Yahoo's \texttt{code} / \texttt{description} fields.
+
+The package also exports the shared \textsc{Http} helpers
+(\texttt{http-get}, \texttt{http-get-json}, \texttt{api-get}, query
+builders, \texttt{json-ref}) in the same style as
+\texttt{coingecko/rest-api}.
