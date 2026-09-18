@@ -47,7 +47,7 @@
 (defparameter author "Christopher Mark Gore <cgore@cgore.com>")
 (defparameter copyright "Copyright (c) 2026, Christopher Mark Gore, Soli Deo Gloria, all rights reserved.")
 (defparameter version-major    0)
-(defparameter version-minor    1)
+(defparameter version-minor    2)
 (defparameter version-revision 0)
 
 (defun version-list ()

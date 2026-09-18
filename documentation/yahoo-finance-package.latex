@@ -208,4 +208,4 @@ Parse a checked-in chart \textsc{Json} fixture under
 
 \texttt{version-string}, \texttt{version-list}, and the three
 \texttt{version-*} parameters are re-exported from
-\texttt{yahoo-finance/system}.  This is version \texttt{0.1.0}.
+\texttt{yahoo-finance/system}.  This is version \texttt{0.2.0}.
