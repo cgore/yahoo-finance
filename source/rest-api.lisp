@@ -42,6 +42,7 @@
            :*max-retries*
            :*retry-wait-seconds*
            :canonicalize-ticker
+           :canonicalize-tickers
            :query-value
            :query
            :query-alist
@@ -102,6 +103,47 @@
   (should-string= "AAPL" (canonicalize-ticker :aapl))
   (should-string= "^GSPC" (canonicalize-ticker "^gspc"))
   (should-be-null (canonicalize-ticker nil)))
+
+(defun split-comma-tickers (string)
+  "Split STRING on commas and trim whitespace.  Empty pieces drop."
+  (loop for start = 0 then (1+ pos)
+        for pos = (position #\, string :start start)
+        for piece = (string-trim '(#\Space #\Tab #\Newline #\Return)
+                                 (subseq string start pos))
+        when (plusp (length piece))
+          collect piece
+        while pos))
+
+(defun canonicalize-tickers (symbols)
+  "Uppercase Yahoo tickers from a symbol, a comma string, or a list.
+Duplicates are dropped, order kept.  NIL or blank input is an empty list."
+  (let* ((raw (cond ((null symbols) nil)
+                    ((and (stringp symbols) (find #\, symbols))
+                     (split-comma-tickers symbols))
+                    ((or (stringp symbols) (symbolp symbols))
+                     (list symbols))
+                    ((listp symbols) symbols)
+                    (t (list symbols))))
+         (seen (make-hash-table :test #'equal)))
+    (loop for item in raw
+          for ticker = (canonicalize-ticker
+                        (if (stringp item)
+                            (string-trim '(#\Space #\Tab #\Newline #\Return) item)
+                            item))
+          when (and ticker
+                    (plusp (length ticker))
+                    (not (gethash ticker seen)))
+            collect (progn (setf (gethash ticker seen) t) ticker))))
+
+(behavior 'canonicalize-tickers
+  (should-equal '("AAPL") (canonicalize-tickers "aapl"))
+  (should-equal '("AAPL") (canonicalize-tickers :aapl))
+  (should-equal '("AAPL" "MSFT" "BTC-USD")
+                (canonicalize-tickers "aapl, MSFT, btc-usd"))
+  (should-equal '("AAPL" "MSFT")
+                (canonicalize-tickers '("aapl" :msft "AAPL")))
+  (should-equal '() (canonicalize-tickers nil))
+  (should-equal '() (canonicalize-tickers "  ,  ")))
 
 (defun query-value (value)
   "Turn a Lisp value into a Yahoo query-string fragment.

@@ -59,3 +59,32 @@
       (declare (ignore condition))
       ;; Yahoo 429s; do not fail the suite on a polite skip.
       t)))
+
+(behavior 'ohlc-history-many-live
+  (handler-case
+      (let ((rows (ohlc-history-many '("AAPL" "MSFT" "NOTAREALTICKERZZZ")
+                                     :from 1704067200
+                                     :to 1706745600)))
+        (should= 3 (length rows))
+        (let ((aapl (find "AAPL" rows :key (lambda (row) (getf row :symbol))
+                          :test #'string=))
+              (msft (find "MSFT" rows :key (lambda (row) (getf row :symbol))
+                          :test #'string=))
+              (bad (find "NOTAREALTICKERZZZ" rows
+                         :key (lambda (row) (getf row :symbol))
+                         :test #'string=)))
+          (should-be-true (>= (length (getf aapl :bars)) 15))
+          (should-be-true (ohlc-bar-p (first (getf aapl :bars))))
+          (should-be-a 'number
+                       (ohlc-bar-open (first (getf aapl :bars)))
+                       (ohlc-bar-high (first (getf aapl :bars)))
+                       (ohlc-bar-low (first (getf aapl :bars)))
+                       (ohlc-bar-close (first (getf aapl :bars)))
+                       (ohlc-bar-volume (first (getf aapl :bars))))
+          (should-string= "USD" (getf (getf aapl :meta) :currency))
+          (should-be-true (>= (length (getf msft :bars)) 15))
+          (should-be-true (getf bad :error))
+          (should-be-null (getf bad :bars))))
+    (rate-limited (condition)
+      (declare (ignore condition))
+      t)))

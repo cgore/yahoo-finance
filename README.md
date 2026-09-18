@@ -78,6 +78,33 @@ Raw payload if you want it:
 (chart-result "AAPL" :range "1y")   ; chart.result[0], or a CHART-ERROR
 ```
 
+## Many symbols, one window
+
+Yahoo has no “all stocks on this date” dump, and `/v8/finance/spark` is
+close-only (not full candlesticks).  Full OHLC still comes from the
+chart endpoint, one HTTP request per ticker.  `ohlc-history-many`
+batches those calls behind one window so you can fill a day without
+pulling each ticker’s full history.
+
+```lisp
+;; Default window is 5d, not full history.
+(ohlc-history-many '("AAPL" "MSFT" "BTC-USD"))
+
+;; One calendar day (unix seconds or universal times).
+(ohlc-history-many "AAPL,MSFT"
+                   :from (encode-universal-time 0 0 0 17 9 2026 0)
+                   :to   (encode-universal-time 0 0 0 18 9 2026 0))
+
+;; Each row is (:symbol :bars :meta), or (:symbol :error) if that
+;; ticker failed.  A 429 still aborts the batch.
+(dolist (row *)
+  (let ((bars (getf row :bars)))
+    (when bars
+      (ohlc-bars-for-ingest bars))))
+```
+
+Pass `:continue-on-error nil` to stop on the first bad ticker.
+
 ## Feeding candlesticks
 
 ```lisp

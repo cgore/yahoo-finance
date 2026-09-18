@@ -84,6 +84,16 @@ Yahoo tickers are uppercase strings: \texttt{AAPL}, \texttt{BRK-B},
 
 \texttt{(canonicalize-ticker \lispVar{symbol})}
 
+\lispFunctionSubsection{canonicalize-tickers}
+
+Uppercase Yahoo tickers from a symbol, a comma-separated string, or a
+list.  Duplicates are dropped, order kept.  \texttt{nil} or blank input
+is an empty list.
+
+\lispSyntax
+
+\texttt{(canonicalize-tickers \lispVar{symbols})}
+
 \lispFunctionSubsection{get-chart}
 
 Raw \texttt{GET /v8/finance/chart/\lispVar{symbol}}.  Returns the

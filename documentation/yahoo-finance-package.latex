@@ -36,7 +36,8 @@
 
 The package you \texttt{use} from application code.  It re-exports every
 external symbol of \texttt{yahoo-finance/rest-api} and adds time
-conversion, window normalisation, and \texttt{ohlc-history}.
+conversion, window normalisation, \texttt{ohlc-history}, and
+\texttt{ohlc-history-many}.
 
 \section{Time}
 
@@ -164,6 +165,37 @@ Default window is a full daily history via
 (ohlc-history "AAPL"
               :from (encode-universal-time 0 0 0 1 1 2020 0)
               :to   (encode-universal-time 0 0 0 1 1 2024 0))
+\end{lstlisting}
+
+\lispFunctionSubsection{ohlc-history-many}
+
+\texttt{ohlc-history} for each ticker in \lispVar{symbols}, sharing one
+window.  \lispVar{symbols} is a ticker, a comma-separated string, or a
+list.  Each success is a plist \texttt{(:symbol :bars :meta)}.  When
+\texttt{:continue-on-error} is true (the default), a per-ticker failure
+is \texttt{(:symbol :error)} instead of aborting.  A
+\texttt{rate-limited} error is always re-signaled.
+
+Yahoo's chart endpoint is still one \textsc{Http} request per ticker.
+Spark is not used: that endpoint returns closes only, not full
+candlesticks.  With no \texttt{:range} / \texttt{:from} / \texttt{:to},
+the window is \texttt{5d} (not the full-history default of
+\texttt{ohlc-history}).
+
+\lispSyntax
+
+\texttt{(ohlc-history-many \lispVar{symbols} \&key \lispVar{interval}
+\lispVar{range} \lispVar{from} \lispVar{to} \lispVar{period1}
+\lispVar{period2} \lispVar{events} \lispVar{include-adjusted-close}
+\lispVar{include-pre-post} \lispVar{cache} \lispVar{continue-on-error})}
+
+\lispExamples
+
+\begin{lstlisting}
+(ohlc-history-many '("AAPL" "MSFT" "BTC-USD"))
+(ohlc-history-many "AAPL,MSFT"
+                   :from (encode-universal-time 0 0 0 17 9 2026 0)
+                   :to   (encode-universal-time 0 0 0 18 9 2026 0))
 \end{lstlisting}
 
 \lispFunctionSubsection{load-chart-fixture}

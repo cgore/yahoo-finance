@@ -59,6 +59,7 @@
            #:ohlc-bar-tuple
            #:ohlc-bars-for-ingest
            #:ohlc-history
+           #:ohlc-history-many
            #:load-chart-fixture
            #:version-string
            #:version-list
@@ -476,3 +477,54 @@ OHLC-BARS-FOR-INGEST before CANDLESTICKS:INGEST-CANDLESTICKS."
          (result (unwrap-chart payload :url url)))
     (values (result->bars result)
             (chart-meta result :endpoint url))))
+
+(defun ohlc-history-many (symbols &key (interval "1d") range from to
+                          period1 period2 events
+                          (include-adjusted-close t) include-pre-post
+                          (cache t) (continue-on-error t))
+  "OHLC-HISTORY for each ticker in SYMBOLS, sharing one window.
+
+SYMBOLS is a ticker, a comma-separated string, or a list.  Each success
+is a plist (:symbol :bars :meta).  When CONTINUE-ON-ERROR is true
+(the default), a per-ticker failure is (:symbol :error) instead of
+aborting the batch.  RATE-LIMITED is always re-signaled.
+
+Yahoo's chart endpoint is still one HTTP request per ticker; this only
+avoids pulling full history when you pass a short window.  With no
+:range / :from / :to, the window is 5d (not the full-history default of
+OHLC-HISTORY).  Spark is not used: that endpoint returns closes only.
+
+This library does not depend on candlesticks.  Pass each :bars through
+OHLC-BARS-FOR-INGEST before CANDLESTICKS:INGEST-CANDLESTICKS."
+  (let ((tickers (canonicalize-tickers symbols))
+        (range (if (or range from to period1 period2)
+                   range
+                   "5d")))
+    (unless tickers
+      (return-from ohlc-history-many nil))
+    (loop for ticker in tickers
+          collect (handler-case
+                      (multiple-value-bind (bars meta)
+                          (ohlc-history ticker
+                                        :interval interval
+                                        :range range
+                                        :from from
+                                        :to to
+                                        :period1 period1
+                                        :period2 period2
+                                        :events events
+                                        :include-adjusted-close
+                                        include-adjusted-close
+                                        :include-pre-post include-pre-post
+                                        :cache cache)
+                        (list :symbol ticker :bars bars :meta meta))
+                    (rate-limited (c)
+                      (error c))
+                    (error (c)
+                      (unless continue-on-error
+                        (error c))
+                      (list :symbol ticker :error c))))))
+
+(behavior 'ohlc-history-many-empty
+  (should-be-null (ohlc-history-many nil))
+  (should-be-null (ohlc-history-many "  , ")))
